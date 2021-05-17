@@ -13,6 +13,11 @@ const internalLinks = link => !/^\w+:\/\/\/?\w/i.test(link);
 
 const nonEmptyLinks = link => link !== '';
 
+/* The top level regular expression to catch internal HTML links */
+const extractHtmlLinkTags = (text) => text.match(/<a.*data-passage="[^"]*".*>.*<\/a>/g) || [];
+
+const htmlLink = link => /<a/i.test(link);
+
 /* Identifies values that appear only once in the array. */
 const uniques = (v, i, a) => a.indexOf(v) === i;
 
@@ -45,9 +50,17 @@ const extractLink = (tagContent) => {
 	Arrow links:
 	[[display text->link]] format
 	[[link<-display text]] format
+	<a data-passage="Passage Name">Text</a> format
 	
 	Interpret the rightmost '->' and the leftmost '<-' as the divider.
 	*/
+
+	if (htmlLink(tagContent)) {
+		let regex = /<a.*data-passage="(?<dest>[^"]*)".*>(?<text>.*)<\/a>/g;
+		let match = regex.exec(tagContent);
+		return match.groups.dest;
+	}
+
 
 	return getField(tagContent, '->', -1) ||
 		   getField(tagContent, '<-', 0) ||
@@ -77,6 +90,11 @@ module.exports = (text, internalOnly) => {
 	if (internalOnly) {
 		result = result.filter(internalLinks);
 	}
+
+	result = result.concat(extractHtmlLinkTags(text)
+		.map(extractLink)
+		.filter(nonEmptyLinks)
+		.filter(uniques));
 
 	return result;
 };
